@@ -20,17 +20,17 @@ def check_args():
         version='0.1',
         epilog='''
         Examples:
-        apacher -n 10 -l <apache_access_log_filename> -s ip (top 10 incoming connections)
-        apacher -n 10 -l <apache_access_log_filename> -s url (top 10 urls requested)
-        apacher -n 10 -l <apache_access_log_filename> -s httpcode (top 10 http codes)
-        apacher -n 10 -l <apache_access_log_filename> -s agent (top 10 browsers)
-        apacher -n 10 -l <apache_access_log_filename> -s all (top 10 of the above)
+        apacher -n 10 -s ip <apache_access_log_filename> (top 10 incoming connections)
+        apacher -n 10 -s url <apache_access_log_filename> (top 10 urls requested)
+        apacher -n 10 -s httpcode <apache_access_log_filename> (top 10 http codes)
+        apacher -n 10 -s agent <apache_access_log_filename> (top 10 browsers)
+        apacher -n 10 -s all <apache_access_log_filename> (top 10 of the above)
         '''
     )
 
-    parser.add_argument("-n", action="store", help="number of records to return", type=int)
-    parser.add_argument("-l", action="store", help="log file name to analyze")
-    parser.add_argument("-s", action="store", help="ip/urls/time/httpcode/agent/all")
+    parser.add_argument("-n", action="store", dest="lines", default=0, help="number of records to return", type=int)
+    parser.add_argument("-s", action="store", dest="type", default="all", help="ip/urls/time/httpcode/agent/all")
+    parser.add_argument("file", action="store", nargs="+", help="log file name to analyze")
     args = parser.parse_args()
 
     return args
@@ -74,10 +74,7 @@ def process_log_file(args):
     dict_agent = defaultdict(int)
 
     # If we are not asked to print 'n' number of lines, print all of them
-    if args.n:
-        display = args.n
-    else:
-        display = 0
+    display = args.lines
 
     msg = { 'ip':'Top Source IP',
             'url': 'Top destination URL',
@@ -89,30 +86,33 @@ def process_log_file(args):
     loopback = re.compile('^::1\s+.*',re.VERBOSE)
     
     # Create dictionary for each of the values, and only print the ones being asked to
-    with open(args.l, "r") as file:
-        for line in file:
-            line.strip("\n")
-            if re.match(loopback,line):
-                continue
-            match = re.search(pattern,line)
-            dict_ip[match.group('ip')] += 1
-            dict_url[match.group('url')] += 1
-            dict_httpcode[match.group('httpcode')] += 1
-            dict_agent[match.group('agent')] += 1
+    lines=[]
+    for fn in args.file:
+        with open(fn, "r") as file: lines+=file.readlines()
+    for line in lines:
+        line.strip("\n")
+        if re.match(loopback,line):
+            continue
+        match = re.search(pattern,line)
+        dict_ip[match.group('ip')] += 1
+        dict_url[match.group('url')] += 1
+        dict_httpcode[match.group('httpcode')] += 1
+        dict_agent[match.group('agent')] += 1
 
-        if args.s == 'ip':
-            print_dict(dict_ip,display,msg['ip'])
-        if args.s == 'url':
-            print_dict(dict_url,display,msg['url'])
-        if args.s == 'httpcode':
-            print_dict(dict_httpcode,display,msg['httpcode'])
-        if args.s == 'agent':
-            print_dict(dict_agent,display,msg['agent'])
-        if args.s == 'all':
-            print_dict(dict_ip,display,msg['ip'])
-            print_dict(dict_url,display,msg['url'])
-            print_dict(dict_httpcode,display,msg['httpcode'])
-            print_dict(dict_agent,display,msg['agent'])
+    if args.type == 'ip':
+        print_dict(dict_ip,display,msg['ip'])
+    if args.type == 'url':
+        print_dict(dict_url,display,msg['url'])
+    if args.type == 'httpcode':
+        print_dict(dict_httpcode,display,msg['httpcode'])
+    if args.type == 'agent':
+        print_dict(dict_agent,display,msg['agent'])
+    if args.type == 'all':
+        print_dict(dict_ip,display,msg['ip'])
+        print_dict(dict_url,display,msg['url'])
+        print_dict(dict_httpcode,display,msg['httpcode'])
+        print_dict(dict_agent,display,msg['agent'])
+    print '\nParsed',len(args.file),'file(s),',len(lines),'line(s)'
 
 def main():
     """ Start of program logic """
